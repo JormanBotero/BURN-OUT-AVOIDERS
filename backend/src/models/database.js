@@ -514,3 +514,17 @@ function pgEvalAJs(r) {
 function aSnakeCase(str) {
   return str.replace(/[A-Z]/g, c => '_' + c.toLowerCase())
 }
+
+
+// Utilidad para obtener estadisticas generales del usuario
+export const getUserStats = (userId, db) => {
+  const tasks = db.tasks.filter(t => t.userId === userId)
+  const subjects = db.subjects.filter(s => s.userId === userId)
+  const evaluations = db.evaluations.filter(e => e.userId === userId)
+  const pending = tasks.filter(t => t.status === 'pending').length
+  const completed = tasks.filter(t => t.status === 'completed').length
+  const avgGrade = evaluations.length
+    ? (evaluations.reduce((acc, e) => acc + (e.grade || 0), 0) / evaluations.length).toFixed(1)
+    : null
+  return { totalTasks: tasks.length, pending, completed, totalSubjects: subjects.length, avgGrade }
+}
