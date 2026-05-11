@@ -154,3 +154,5 @@ function PaginaBreadcrumb({ pathname }) {
     </div>
   )
 }
+
+// El sidebar se oculta automaticamente en pantallas pequenas via CSS
