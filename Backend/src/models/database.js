@@ -514,3 +514,34 @@ function pgEvalAJs(r) {
 function aSnakeCase(str) {
   return str.replace(/[A-Z]/g, c => '_' + c.toLowerCase())
 }
+
+
+// Estadísticas generales del usuario para el dashboard
+export const getUserStats = (userId, db) => {
+  const tasks = db.tasks.filter(t => t.userId === userId)
+  const subjects = db.subjects.filter(s => s.userId === userId)
+  const evaluations = db.evaluations.filter(e => e.userId === userId)
+  const pending = tasks.filter(t => t.status === 'pending').length
+  const inProgress = tasks.filter(t => t.status === 'in-progress').length
+  const completed = tasks.filter(t => t.status === 'completed').length
+  const overdue = tasks.filter(t => {
+    if (!t.dueDate || t.status === 'completed') return false
+    return new Date(t.dueDate) < new Date()
+  }).length
+  const avgGrade = evaluations.length
+    ? (evaluations.reduce((acc, e) => acc + (e.grade || 0), 0) / evaluations.length).toFixed(1)
+    : null
+  const gradesBySubject = subjects.map(s => {
+    const evals = evaluations.filter(e => e.subjectId === s.id)
+    const avg = evals.length
+      ? (evals.reduce((acc, e) => acc + (e.grade || 0), 0) / evals.length).toFixed(1)
+      : null
+    return { subjectId: s.id, name: s.name, avg, total: evals.length }
+  })
+  return {
+    totalTasks: tasks.length, pending, inProgress, completed, overdue,
+    totalSubjects: subjects.length,
+    totalEvaluations: evaluations.length,
+    avgGrade, gradesBySubject
+  }
+}
