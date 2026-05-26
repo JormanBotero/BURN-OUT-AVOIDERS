@@ -132,3 +132,6 @@ Actualmente se han desarrollado:
 - Prototipado de la solución  
 - Desarrollo de módulos principales  
 - Validación con usuarios  
+
+
+## npm install --save-dev vitest supertest @vitest/coverage-v8
