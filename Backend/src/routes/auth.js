@@ -10,6 +10,7 @@ import { OAuth2Client } from 'google-auth-library'
 import { findUserByEmail, createUser, findUserById, findUserByGoogleId, updateUserGoogleId, setVerificationCode, verifyEmailCode, markEmailVerified } from '../models/database.js'
 import { sendVerificationCode } from '../utils/mail.js'
 import { generarToken } from '../middleware/auth.js'
+import { PW_REGEX, generarIniciales, generarCodigo } from '../services/validation.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'studymind-dev-secret-change-in-production'
@@ -23,8 +24,7 @@ router.post('/register', async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios' })
     }
-    const pwRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$/
-    if (!pwRegex.test(password)) {
+    if (!PW_REGEX.test(password)) {
       return res.status(400).json({ error: 'La contraseña debe tener mínimo 8 carácteres, una mayúscula, una minúscula, un número y un carácter especial' })
     }
 
@@ -38,7 +38,7 @@ router.post('/register', async (req, res) => {
     const contrasenaHash = await bcrypt.hash(password, 10)
 
     // Generar iniciales automáticamente a partir del nombre
-    const iniciales = name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+    const iniciales = generarIniciales(name)
 
     const usuario = await createUser({
       name, email,
@@ -50,7 +50,7 @@ router.post('/register', async (req, res) => {
     })
 
     // Generar y enviar código de verificación
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const code = generarCodigo()
     await setVerificationCode(usuario.id, code)
     await sendVerificationCode(email, code)
 
@@ -99,7 +99,7 @@ router.post('/send-code', async (req, res) => {
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' })
     if (usuario.emailVerified) return res.json({ message: 'Email ya verificado' })
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const code = generarCodigo()
     await setVerificationCode(userId, code)
     await sendVerificationCode(usuario.email, code)
     res.json({ message: 'Código enviado' })
@@ -165,7 +165,7 @@ router.post('/google', async (req, res) => {
         usuario = await updateUserGoogleId(usuario.id, payload.sub)
       } else {
         const iniciales = payload.name
-          ? payload.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+          ? generarIniciales(payload.name)
           : payload.email[0].toUpperCase()
         usuario = await createUser({
           name: payload.name || payload.email.split('@')[0],
