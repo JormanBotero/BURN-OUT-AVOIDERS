@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { database } from '../models/database.js'
+import { calcularHoras, generarPlan } from '../services/planificador.js'
 
 const router = Router()
 
@@ -52,12 +53,6 @@ router.post('/generate', async (req, res) => {
     ])
 
     const settings = settingsRows.rows[0]
-    const hoursPerWeek = settings ? Number(settings.study_hours_per_week) : 20
-    const dailyHours = Math.round((hoursPerWeek / 7) * 10) / 10
-
-    // Generar plan simple: distribuir tareas en los días
-    const days = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
-    const planData = { hoursPerWeek, dailyHours, days: [] }
 
     const allEvals = evalRows.rows.map(r => ({
       id: r.id, title: r.title, type: r.type,
@@ -73,19 +68,7 @@ router.post('/generate', async (req, res) => {
       difficulty: r.difficulty,
     }))
 
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart)
-      d.setDate(d.getDate() + i)
-      const dateStr = d.toISOString().split('T')[0]
-      const dayEvals = allEvals.filter(e => e.dueDate && e.dueDate.startsWith(dateStr))
-      const dayTasks = allTasks.filter(t => t.dueDate && t.dueDate.startsWith(dateStr))
-      planData.days.push({
-        date: dateStr, label: days[i],
-        hours: dailyHours,
-        evaluations: dayEvals,
-        tasks: dayTasks,
-      })
-    }
+    const planData = generarPlan(weekStart, allEvals, allTasks, settings)
 
     // Guardar en BD
     const { rows } = await database.query(

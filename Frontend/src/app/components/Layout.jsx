@@ -7,8 +7,9 @@ import {
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Avatar } from './ui.jsx'
-import { VerifyEmailModal } from './VerifyEmailModal.jsx'
+
 import { SettingsModal } from './SettingsModal.jsx'
+import { VerifyEmailModal } from './VerifyEmailModal.jsx'
 
 const NAV = [
   { path: '/app',           label: 'Dashboard', icon: LayoutDashboard, color: '#7265f8' },
@@ -27,6 +28,7 @@ export function Layout() {
   const { isDark, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
   const [showSettings, setShowSettings] = useState(false)
+  const [showVerify, setShowVerify] = useState(false)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex' }}>
@@ -284,22 +286,40 @@ export function Layout() {
           zIndex: 30, flexShrink: 0,
         }}>
           <PaginaBreadcrumb pathname={loc.pathname} />
-          <Link to="/app/profile" style={{
-            textDecoration: 'none', display: 'flex',
-            alignItems: 'center', gap: '0.5rem',
-          }}>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              {user?.name}
-            </span>
-            <Avatar src={user?.avatar} initials={user?.initials} size={26} radius={8} />
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {user && !user.emailVerified && (
+              <button onClick={() => setShowVerify(true)} title="Verificar correo"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 500,
+                  padding: '0.25rem 0.5rem', borderRadius: '20px',
+                  border: '1px solid var(--border)', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                Sin verificar
+              </button>
+            )}
+            <Link to="/app/profile" style={{
+              textDecoration: 'none', display: 'flex',
+              alignItems: 'center', gap: '0.5rem',
+            }}>
+              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                {user?.name}
+              </span>
+              <Avatar src={user?.avatar} initials={user?.initials} size={26} radius={8} />
+            </Link>
+          </div>
         </header>
         <main style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
           <div className="page-enter"><Outlet /></div>
         </main>
       </div>
-      <VerifyEmailModal />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      <VerifyEmailModal open={showVerify} onClose={() => setShowVerify(false)} />
     </div>
   )
 }

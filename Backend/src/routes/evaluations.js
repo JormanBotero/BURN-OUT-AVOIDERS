@@ -10,7 +10,7 @@ import { Router } from 'express'
 import { getUserTasks, createTask, updateTask, deleteTask } from '../models/database.js'
 
 // Mapea campos de evaluación → tarea unificada
-function evalToTask(datos) {
+export function evalToTask(datos) {
   return {
     subjectId: datos.subjectId,
     title: datos.title,

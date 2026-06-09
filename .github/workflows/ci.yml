@@ -1,0 +1,36 @@
+name: CI — StudyMind Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: Backend/pnpm-lock.yaml
+
+      - name: Install Backend deps
+        working-directory: ./Backend
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run Backend tests
+        working-directory: ./Backend
+        run: pnpm test
