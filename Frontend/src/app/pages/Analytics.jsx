@@ -5,14 +5,13 @@
 // ─────────────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react'
 import { api } from '../utils/api.js'
-import { defaultSubjects, defaultTasks, defaultEvaluations, localGet } from '../utils/storage.js'
-import { differenceInDays, startOfWeek, addWeeks, format } from 'date-fns'
+import { startOfWeek, addWeeks, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend
 } from 'recharts'
-import { TrendingUp, Target, Clock, BookOpen, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Target, Clock, BookOpen, CheckCircle2 } from 'lucide-react'
 import { StatCard } from '../components/ui.jsx'
 
 const COLORS = ['#7265f8', '#0ea47a', '#d97706', '#ec4899', '#3b82f6', '#a78bfa']
@@ -30,9 +29,7 @@ export function Analytics() {
         setTasks(t.map(x => ({ ...x, dueDate: new Date(x.dueDate) })))
         setEvaluations(e.map(x => ({ ...x, date: new Date(x.date) })))
       } catch {
-        setSubjects(localGet('subjects', defaultSubjects))
-        setTasks(localGet('tasks', defaultTasks()).map(x => ({ ...x, dueDate: new Date(x.dueDate) })))
-        setEvaluations(localGet('evaluations', defaultEvaluations()).map(x => ({ ...x, date: new Date(x.date) })))
+        setSubjects([]); setTasks([]); setEvaluations([])
       }
     }
     load()

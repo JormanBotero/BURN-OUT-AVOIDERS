@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../utils/api.js'
-import { User, Mail, BookOpen, Building2, GraduationCap, Edit3, Save, X, Lock, Shield, Camera, CheckCircle2 } from 'lucide-react'
+import { User, Mail, GraduationCap, Edit3, Save, X, Lock, Shield } from 'lucide-react'
 import { Btn, Input, Select, Textarea, Alert, Avatar } from '../components/ui.jsx'
 
 const CAREERS = ['Ingeniería de Sistemas', 'Ingeniería Civil', 'Medicina', 'Derecho', 'Administración de Empresas', 'Psicología', 'Arquitectura', 'Contaduría', 'Enfermería', 'Comunicación Social', 'Otra']
@@ -28,7 +28,7 @@ function Section({ title, description, icon: Icon, children }) {
 }
 
 export function Profile() {
-  const { user, setUser, refreshUser } = useAuth()
+  const { user, updateUser } = useAuth()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ name: user?.name || '', career: user?.career || '', semester: user?.semester || '', university: user?.university || '', bio: user?.bio || '' })
   const [passForm, setPassForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -47,8 +47,7 @@ export function Profile() {
     setLoading(true); setError(''); setSuccess('')
     try {
       const updated = await api.updateMe(form)
-      setUser(updated)
-      localStorage.setItem('studymind_user', JSON.stringify(updated))
+      updateUser(updated)
       setSuccess('Perfil actualizado correctamente')
       setEditing(false)
       setTimeout(() => setSuccess(''), 4000)

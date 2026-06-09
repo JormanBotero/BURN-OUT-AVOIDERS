@@ -36,7 +36,9 @@ export const api = {
   // Autenticación
   login:      (cuerpo)      => peticion('/auth/login',    { method: 'POST', body: JSON.stringify(cuerpo) }),
   register:   (cuerpo)      => peticion('/auth/register', { method: 'POST', body: JSON.stringify(cuerpo) }),
-  googleAuth: (credencial)  => peticion('/auth/google',   { method: 'POST', body: JSON.stringify({ credential: credencial }) }),
+  googleAuth: (token)       => peticion('/auth/google',   { method: 'POST', body: JSON.stringify({ access_token: token }) }),
+  sendCode:   ()            => peticion('/auth/send-code', { method: 'POST' }),
+  verifyCode: (code)        => peticion('/auth/verify-code', { method: 'POST', body: JSON.stringify({ code }) }),
 
   // Perfil del usuario
   getMe:          ()       => peticion('/users/me'),
@@ -60,4 +62,20 @@ export const api = {
   createEvaluation:  (cuerpo)    => peticion('/evaluations',       { method: 'POST', body: JSON.stringify(cuerpo) }),
   updateEvaluation:  (id, cuerpo) => peticion(`/evaluations/${id}`, { method: 'PUT',  body: JSON.stringify(cuerpo) }),
   deleteEvaluation:  (id)        => peticion(`/evaluations/${id}`,  { method: 'DELETE' }),
+
+  // Bienestar diario
+  getTodayWellbeing: ()       => peticion('/wellbeing/today'),
+  saveWellbeing:     (cuerpo) => peticion('/wellbeing',          { method: 'POST', body: JSON.stringify(cuerpo) }),
+  getWellbeingHistory: ()     => peticion('/wellbeing/history'),
+
+  // Configuración de usuario
+  getSettings: ()       => peticion('/settings'),
+  updateSettings: (c)   => peticion('/settings', { method: 'PUT', body: JSON.stringify(c) }),
+
+  // Plan de estudio
+  getPlans: ()          => peticion('/plans'),
+  generatePlan: (ws)    => peticion('/plans/generate', { method: 'POST', body: JSON.stringify({ weekStart: ws }) }),
+
+  // Recomendaciones
+  getRecommendations: () => peticion('/recommendations'),
 }

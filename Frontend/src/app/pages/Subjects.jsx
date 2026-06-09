@@ -5,7 +5,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../utils/api.js'
-import { defaultSubjects, localGet, localSet } from '../utils/storage.js'
 import { Plus, Edit2, Trash2, BookOpen, User, Award, Clock, X, ChevronRight, TrendingUp } from 'lucide-react'
 import { Btn, Input, Select, Modal, EmptyState, Badge, StatCard } from '../components/ui.jsx'
 
@@ -94,10 +93,10 @@ export function Subjects() {
   const [deleting, setDeleting] = useState(null)
 
   useEffect(() => {
-    api.getSubjects().then(setSubjects).catch(() => setSubjects(localGet('subjects', defaultSubjects)))
+    api.getSubjects().then(setSubjects).catch(() => setSubjects([]))
   }, [])
 
-  const persist = (updated) => { setSubjects(updated); localSet('subjects', updated) }
+  const persist = (updated) => setSubjects(updated)
 
   const handleSave = async (subject) => {
     try {
@@ -160,7 +159,7 @@ export function Subjects() {
           {subjects.map((s) => {
             const diff = diffMap[s.difficulty] || diffMap.medium
             return (
-              <div key={s.id} onClick={() => navigate(`/subjects/${s.id}`)}
+              <div key={s.id} onClick={() => navigate(`/app/subjects/${s.id}`)}
                 className="surface"
                 style={{ overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.18s, transform 0.18s, border-color 0.18s' }}
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 24px ${s.color}25`; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = `${s.color}50` }}

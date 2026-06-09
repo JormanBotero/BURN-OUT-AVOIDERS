@@ -1,48 +1,78 @@
 // ─────────────────────────────────────────────────────────────────
-// Rutas de Evaluaciones — CRUD protegido por JWT
+// Rutas de Evaluaciones — CRUD (delega a tasks unificado)
 //
-// Las evaluaciones incluyen campos extendidos para análisis futuro
-// con IA: descripción, temas, materiales, estado, calificación y
-// retroalimentación del profesor.
+// Por compatibilidad, este router sigue funcionando, pero los datos
+// se guardan en la tabla `tasks` (unificada). El campo `date` de la
+// evaluación se mapea a `dueDate` en tareas, y `estimatedStudyHours`
+// a `estimatedHours`.
 // ─────────────────────────────────────────────────────────────────
 import { Router } from 'express'
-import { getUserEvaluations, createEvaluation, updateEvaluation, deleteEvaluation } from '../models/database.js'
+import { getUserTasks, createTask, updateTask, deleteTask } from '../models/database.js'
+
+// Mapea campos de evaluación → tarea unificada
+function evalToTask(datos) {
+  return {
+    subjectId: datos.subjectId,
+    title: datos.title,
+    description: datos.description,
+    type: datos.type || 'exam',
+    priority: datos.priority || 'high',
+    dueDate: datos.date || datos.dueDate,
+    estimatedHours: datos.estimatedStudyHours || datos.estimatedHours || 5,
+    completed: datos.status === 'passed' || datos.status === 'failed' || datos.status === 'done',
+    status: datos.status || 'pending',
+    weight: datos.weight || 20,
+    score: datos.score != null ? datos.score : null,
+    maxScore: datos.maxScore || 5,
+    difficulty: datos.difficulty || 'medium',
+    location: datos.location || '',
+    topics: datos.topics || [],
+    studyMaterials: datos.studyMaterials || [],
+    feedback: datos.feedback || '',
+    notes: datos.notes || '',
+  }
+}
 
 const router = Router()
 
-// GET /evaluations — Listar todas las evaluaciones del usuario
 router.get('/', async (req, res) => {
   try {
-    res.json(await getUserEvaluations(req.userId))
+    const tasks = await getUserTasks(req.userId)
+    res.json(tasks
+      .filter(t => ['exam','quiz','final','midterm','oral','workshop','homework'].includes(t.type))
+      .map(taskToEval)
+    )
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-// POST /evaluations — Registrar una nueva evaluación con campos completos
+function taskToEval(t) {
+  return { ...t, date: t.dueDate, estimatedStudyHours: t.estimatedHours }
+}
+
 router.post('/', async (req, res) => {
   try {
-    res.status(201).json(await createEvaluation(req.userId, req.body))
+    const tarea = await createTask(req.userId, evalToTask(req.body))
+    res.status(201).json(taskToEval(tarea))
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-// PUT /evaluations/:id — Actualizar evaluación (incluyendo resultado y feedback)
 router.put('/:id', async (req, res) => {
   try {
-    const evaluacion = await updateEvaluation(req.params.id, req.userId, req.body)
-    if (!evaluacion) return res.status(404).json({ error: 'Evaluación no encontrada' })
-    res.json(evaluacion)
+    const tarea = await updateTask(req.params.id, req.userId, evalToTask(req.body))
+    if (!tarea) return res.status(404).json({ error: 'Evaluación no encontrada' })
+    res.json(taskToEval(tarea))
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-// DELETE /evaluations/:id — Eliminar una evaluación
 router.delete('/:id', async (req, res) => {
   try {
-    await deleteEvaluation(req.params.id, req.userId)
+    await deleteTask(req.params.id, req.userId)
     res.json({ mensaje: 'Evaluación eliminada correctamente' })
   } catch (e) {
     res.status(500).json({ error: e.message })

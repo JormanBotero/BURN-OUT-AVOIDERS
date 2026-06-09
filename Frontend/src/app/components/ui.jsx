@@ -115,11 +115,10 @@ export function Textarea({ label, error, style: xStyle, rows = 3, ...props }) {
 }
 
 // ── Modal (ventana emergente centrada) ────────────────────────────
-// Cierra al hacer clic fuera del contenido o en la X
+// Solo se cierra mediante botón Cerrar, Cancelar o acción específica
 export function Modal({ title, subtitle, onClose, children, maxWidth = '540px' }) {
   return (
     <div
-      onClick={e => e.target === e.currentTarget && onClose()}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -170,9 +169,13 @@ export function Alert({ type = 'error', children }) {
 
 // ── Avatar del usuario ────────────────────────────────────────────
 // Muestra la foto si existe, o las iniciales como fallback
+import { useState } from 'react'
+
 export function Avatar({ src, initials, size = 36, radius = 10 }) {
-  if (src) return (
+  const [fallback, setFallback] = useState(false)
+  if (src && !fallback) return (
     <img src={src} alt="avatar" width={size} height={size}
+      onError={() => setFallback(true)}
       style={{ borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   )
   return (
@@ -226,18 +229,6 @@ export function EmptyState({ icon: Icon, title, description, action }) {
       <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{title}</p>
       {description && <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '260px' }}>{description}</p>}
       {action && <div style={{ marginTop: '1rem' }}>{action}</div>}
-    </div>
-  )
-}
-
-// ── Separador visual ──────────────────────────────────────────────
-export function Divider({ label }) {
-  if (!label) return <hr className="divider" />
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-      <hr className="divider" style={{ flex: 1 }} />
-      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</span>
-      <hr className="divider" style={{ flex: 1 }} />
     </div>
   )
 }

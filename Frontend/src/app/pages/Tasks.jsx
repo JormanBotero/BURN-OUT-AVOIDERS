@@ -4,24 +4,42 @@
 // ─────────────────────────────────────────────────────────────────
 import { useEffect, useState, useRef } from 'react'
 import { api } from '../utils/api.js'
-import { defaultTasks, defaultSubjects, localGet, localSet } from '../utils/storage.js'
 import { format, differenceInDays, isPast, isToday, isTomorrow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   Plus, CheckSquare, Square, Trash2, Edit2,
-  ChevronRight, X, Clock, BookOpen, Flag,
-  LayoutList, AlignJustify, Calendar, Search,
+  ChevronRight, X, Clock, BookOpen,
+  AlignJustify, Calendar, Search,
   AlertTriangle, Check, Circle
 } from 'lucide-react'
 import { Btn, Input, Select, Textarea, Modal, EmptyState, StatCard, Alert, IconBtn } from '../components/ui.jsx'
 
 /* ── Constants ─────────────────────────────────────────── */
-const TYPE_LABELS  = { assignment: 'Tarea', reading: 'Lectura', project: 'Proyecto', lab: 'Laboratorio', presentation: 'Presentación' }
+const TYPE_LABELS  = {
+  assignment: 'Tarea', reading: 'Lectura', project: 'Proyecto',
+  lab: 'Laboratorio', presentation: 'Presentación',
+  exam: 'Examen', quiz: 'Quiz', final: 'Final', midterm: 'Parcial',
+  oral: 'Oral', workshop: 'Taller', homework: 'Deber',
+}
 const PRIORITY_CFG = {
   high:   { label: 'Alta',  color: 'var(--danger)',  chipClass: 'chip chip-danger' },
   medium: { label: 'Media', color: 'var(--warning)', chipClass: 'chip chip-warning' },
   low:    { label: 'Baja',  color: 'var(--success)', chipClass: 'chip chip-success' },
 }
+const DIFFICULTY_CFG = {
+  easy:      { label: 'Fácil',       color: 'var(--success)' },
+  medium:    { label: 'Moderado',    color: 'var(--warning)' },
+  hard:      { label: 'Difícil',     color: 'var(--danger)'  },
+  very_hard: { label: 'Muy difícil', color: 'var(--danger)'  },
+}
+const STATUS_CFG = {
+  pending:    { label: 'Pendiente',    color: 'var(--text-muted)' },
+  in_progress: { label: 'En progreso', color: 'var(--info)' },
+  completed:  { label: 'Completada',   color: 'var(--success)' },
+  passed:     { label: 'Aprobada',     color: 'var(--success)' },
+  failed:     { label: 'Reprobada',    color: 'var(--danger)'  },
+}
+const gradedTypes = new Set(['exam','quiz','final','midterm','oral','workshop','homework','assignment','project','lab','presentation'])
 
 function normalize(t) {
   return { ...t, dueDate: t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate) }
@@ -37,21 +55,28 @@ function dueMeta(date, completed) {
   return { label: format(date, "d MMM", { locale: es }), color: 'var(--text-muted)' }
 }
 
-/* ── Task Form (drawer) ─────────────────────────────────── */
+/* ── Activity Form (drawer) ─────────────────────────────── */
 function TaskDrawer({ task, subjects, onSave, onClose }) {
   const todayStr = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState(() => task ? {
+  const initForm = () => task ? {
     ...task,
     dueDate: new Date(task.dueDate).toISOString().split('T')[0],
+    topics: (task.topics || []).join(', '),
+    studyMaterials: (task.studyMaterials || []).join(', '),
+    status: task.status || (task.completed ? 'completed' : 'pending'),
   } : {
     title: '', description: '', subjectId: subjects[0]?.id || '',
     dueDate: todayStr, type: 'assignment', estimatedHours: 2,
     priority: 'medium', completed: false, notes: '',
-  })
+    status: 'pending', weight: '', score: '', maxScore: 5,
+    difficulty: 'medium', location: '', topics: '', studyMaterials: '', feedback: '',
+  }
+  const [form, setForm] = useState(initForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const firstRef = useRef(null)
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
+  const isGraded = gradedTypes.has(form.type)
 
   useEffect(() => { firstRef.current?.focus() }, [])
 
@@ -59,11 +84,18 @@ function TaskDrawer({ task, subjects, onSave, onClose }) {
     e.preventDefault()
     if (!form.title.trim()) { setError('El título es requerido'); return }
     setSaving(true); setError('')
+    const completed = form.status === 'completed' || form.status === 'passed' || form.status === 'failed'
     await onSave({
       ...form,
       id: form.id || Date.now().toString(),
       dueDate: new Date(form.dueDate).toISOString(),
       estimatedHours: Number(form.estimatedHours),
+      completed,
+      weight: isGraded ? Number(form.weight) || 0 : 0,
+      score: isGraded && form.score !== '' ? Number(form.score) : null,
+      maxScore: isGraded ? Number(form.maxScore) || 5 : 5,
+      topics: form.topics ? form.topics.split(',').map(t => t.trim()).filter(Boolean) : [],
+      studyMaterials: form.studyMaterials ? form.studyMaterials.split(',').map(t => t.trim()).filter(Boolean) : [],
     })
     setSaving(false)
   }
@@ -72,27 +104,22 @@ function TaskDrawer({ task, subjects, onSave, onClose }) {
 
   return (
     <>
-      {/* Overlay */}
-      <div onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 190, backdropFilter: 'blur(3px)', animation: 'fadeIn 0.15s ease both' }} />
-
-      {/* Drawer */}
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 190, backdropFilter: 'blur(3px)', animation: 'fadeIn 0.15s ease both' }} />
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: '480px',
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: '520px',
         background: 'var(--bg-surface)', borderLeft: '1px solid var(--border)',
         zIndex: 200, display: 'flex', flexDirection: 'column', boxShadow: 'var(--sh-xl)',
         animation: 'slideIn 0.22s cubic-bezier(0.22,1,0.36,1) both',
       }}>
         <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
 
-        {/* Header */}
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              {isEdit ? 'Editar tarea' : 'Nueva tarea'}
+              {isEdit ? 'Editar actividad' : 'Nueva actividad'}
             </p>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>
-              {isEdit ? 'Modifica los detalles de esta actividad' : 'Registra una nueva actividad académica'}
+              {isEdit ? 'Modifica los detalles' : 'Registra una actividad académica'}
             </p>
           </div>
           <button onClick={onClose} style={{ width: '30px', height: '30px', borderRadius: 'var(--r-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -100,11 +127,9 @@ function TaskDrawer({ task, subjects, onSave, onClose }) {
           </button>
         </div>
 
-        {/* Body — scrollable */}
         <form onSubmit={handleSave} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.1rem', flex: 1 }}>
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
 
-            {/* Title */}
             <div>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px' }}>Título *</label>
               <input ref={firstRef} required value={form.title} onChange={set('title')} placeholder="Nombre de la actividad..."
@@ -113,63 +138,79 @@ function TaskDrawer({ task, subjects, onSave, onClose }) {
                 onBlur={e => e.target.style.borderColor = 'var(--border)'} />
             </div>
 
-            {/* Description */}
-            <Textarea label="Descripción / instrucciones" value={form.description} onChange={set('description')} rows={3} placeholder="Detalles, instrucciones del profesor, referencia de páginas..." />
+            <Textarea label="Descripción" value={form.description} onChange={set('description')} rows={2} placeholder="Detalles, instrucciones del profesor, referencias..." />
 
-            {/* Row: subject + type */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <Select label="Materia" value={form.subjectId} onChange={set('subjectId')}>
                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </Select>
-              <Select label="Tipo de actividad" value={form.type} onChange={set('type')}>
+              <Select label="Tipo" value={form.type} onChange={set('type')}>
                 {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </Select>
             </div>
 
-            {/* Row: date + hours */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input label="Fecha límite *" type="date" required value={form.dueDate} onChange={set('dueDate')} />
+              <Input label="Fecha *" type="date" required value={form.dueDate} onChange={set('dueDate')} />
               <Input label="Horas estimadas" type="number" min="0.5" max="200" step="0.5" value={form.estimatedHours} onChange={set('estimatedHours')} />
             </div>
 
-            {/* Priority — visual selector */}
+            {/* Dificultad */}
             <div>
-              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Prioridad</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {Object.entries(PRIORITY_CFG).map(([k, cfg]) => (
-                  <button key={k} type="button" onClick={() => setForm(p => ({ ...p, priority: k }))}
-                    style={{ flex: 1, height: '34px', borderRadius: 'var(--r-md)', fontSize: '0.78rem', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.12s', border: `1px solid ${form.priority === k ? cfg.color : 'var(--border)'}`, background: form.priority === k ? `${cfg.color}14` : 'var(--bg-surface)', color: form.priority === k ? cfg.color : 'var(--text-muted)' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Dificultad</label>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                {Object.entries(DIFFICULTY_CFG).map(([k, cfg]) => (
+                  <button key={k} type="button" onClick={() => setForm(p => ({ ...p, difficulty: k }))}
+                    style={{ flex: 1, height: '32px', borderRadius: 'var(--r-md)', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.12s', border: `1px solid ${form.difficulty === k ? cfg.color : 'var(--border)'}`, background: form.difficulty === k ? `${cfg.color}14` : 'var(--bg-surface)', color: form.difficulty === k ? cfg.color : 'var(--text-muted)' }}>
                     {cfg.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Notes */}
-            <Textarea label="Notas adicionales (opcional)" value={form.notes || ''} onChange={set('notes')} rows={2} placeholder="Apuntes rápidos, recursos, links..." />
-
-            {/* Status (edit mode) */}
-            {isEdit && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
-                <div>
-                  <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Estado</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{form.completed ? 'Marcada como completada' : 'Pendiente de completar'}</p>
-                </div>
-                <button type="button" onClick={() => setForm(p => ({ ...p, completed: !p.completed }))}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0 0.875rem', height: '30px', borderRadius: 'var(--r-md)', fontSize: '0.78rem', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: `1px solid ${form.completed ? 'var(--success)' : 'var(--border)'}`, background: form.completed ? 'var(--success-soft)' : 'var(--bg-surface)', color: form.completed ? 'var(--success)' : 'var(--text-secondary)', transition: 'all 0.12s' }}>
-                  {form.completed ? <><Check size={12} /> Completada</> : <><Circle size={12} /> Pendiente</>}
-                </button>
+            {/* Prioridad */}
+            <div>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Prioridad</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {Object.entries(PRIORITY_CFG).map(([k, cfg]) => (
+                  <button key={k} type="button" onClick={() => setForm(p => ({ ...p, priority: k }))}
+                    style={{ flex: 1, height: '32px', borderRadius: 'var(--r-md)', fontSize: '0.78rem', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.12s', border: `1px solid ${form.priority === k ? cfg.color : 'var(--border)'}`, background: form.priority === k ? `${cfg.color}14` : 'var(--bg-surface)', color: form.priority === k ? cfg.color : 'var(--text-muted)' }}>
+                    {cfg.label}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* Estado */}
+            <Select label="Estado" value={form.status} onChange={set('status')}>
+              {Object.entries(STATUS_CFG).map(([k, { label }]) => <option key={k} value={k}>{label}</option>)}
+            </Select>
+
+            {isGraded && (
+              <>
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--accent)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Calificación</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                    <Input label="Peso en nota (%)" type="number" min="0" max="100" value={form.weight} onChange={set('weight')} />
+                    <Input label="Nota obtenida" type="number" min="0" value={form.score} onChange={set('score')} placeholder="—" />
+                    <Input label="Nota máxima" type="number" min="1" value={form.maxScore} onChange={set('maxScore')} />
+                  </div>
+                </div>
+                <Input label="Ubicación / aula" value={form.location} onChange={set('location')} placeholder="Salón 301, Lab. Física..." />
+                <Input label="Temas (separados por coma)" value={form.topics} onChange={set('topics')} placeholder="Límites, Derivadas, Regla de la cadena" />
+                <Input label="Materiales de estudio (separados por coma)" value={form.studyMaterials} onChange={set('studyMaterials')} placeholder="Libro Stewart, Apuntes, Khan Academy" />
+                <Textarea label="Retroalimentación del profesor" value={form.feedback || ''} onChange={set('feedback')} rows={2} placeholder="Comentarios recibidos..." />
+              </>
             )}
+
+            <Textarea label="Notas personales" value={form.notes || ''} onChange={set('notes')} rows={2} placeholder="Apuntes rápidos, recursos, links..." />
 
             {error && <Alert type="error">{error}</Alert>}
           </div>
 
-          {/* Footer actions */}
           <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.625rem', justifyContent: 'flex-end', background: 'var(--bg-surface)' }}>
             <Btn type="button" variant="ghost" onClick={onClose}>Cancelar</Btn>
             <Btn type="submit" loading={saving} icon={isEdit ? Check : Plus}>
-              {isEdit ? 'Guardar cambios' : 'Crear tarea'}
+              {isEdit ? 'Guardar cambios' : 'Crear actividad'}
             </Btn>
           </div>
         </form>
@@ -214,10 +255,15 @@ function TaskDetail({ task, subjects, onEdit, onClose, onToggle, onDelete }) {
             { label: 'Materia', value: sub ? <><span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '2px', background: sub.color, marginRight: '6px' }} />{sub.name}</> : '—' },
             { label: 'Tipo', value: TYPE_LABELS[task.type] || task.type },
             { label: 'Prioridad', value: <span style={{ color: pr.color, fontWeight: 600 }}>{pr.label}</span> },
-            { label: 'Fecha límite', value: <span style={{ color: dm.color, fontWeight: 600 }}>{format(task.dueDate, "EEEE d 'de' MMMM", { locale: es })}</span> },
+            { label: 'Dificultad', value: DIFFICULTY_CFG[task.difficulty]?.label || '—' },
+            { label: 'Estado', value: <span style={{ color: (STATUS_CFG[task.status] || STATUS_CFG.pending).color, fontWeight: 600 }}>{(STATUS_CFG[task.status] || STATUS_CFG.pending).label}</span> },
+            { label: 'Fecha', value: <span style={{ color: dm.color, fontWeight: 600 }}>{format(task.dueDate, "EEEE d 'de' MMMM", { locale: es })}</span> },
             { label: 'Tiempo est.', value: `${task.estimatedHours}h` },
+            ...(task.weight > 0 ? [{ label: 'Peso nota', value: `${task.weight}%` }] : []),
+            ...(task.score != null ? [{ label: 'Calificación', value: <span style={{ fontWeight: 700, color: task.score >= (task.maxScore || 5) * 0.6 ? 'var(--success)' : 'var(--danger)' }}>{task.score}/{task.maxScore}</span> }] : []),
+            ...(task.location ? [{ label: 'Ubicación', value: task.location }] : []),
           ].map((row, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.6rem 0.875rem', borderBottom: i < 4 ? '1px solid var(--border)' : 'none', background: i % 2 === 0 ? 'var(--bg-elevated)' : 'var(--bg-surface)' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0.875rem', borderBottom: i < 10 ? '1px solid var(--border)' : 'none', background: i % 2 === 0 ? 'var(--bg-elevated)' : 'var(--bg-surface)' }}>
               <p className="label" style={{ width: '90px', flexShrink: 0 }}>{row.label}</p>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{row.value}</p>
             </div>
@@ -232,6 +278,18 @@ function TaskDetail({ task, subjects, onEdit, onClose, onToggle, onDelete }) {
           </div>
         )}
 
+        {/* Topics */}
+        {task.topics?.length > 0 && (
+          <div style={{ marginBottom: '1rem' }}>
+            <p className="label" style={{ marginBottom: '0.5rem' }}>Temas</p>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {task.topics.map((t, i) => (
+                <span key={i} style={{ padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '99px', fontSize: '0.72rem', color: 'var(--accent)', fontWeight: 500, border: '1px solid var(--border)' }}>{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Description */}
         {task.description && (
           <div style={{ marginBottom: '1.25rem' }}>
@@ -239,6 +297,14 @@ function TaskDetail({ task, subjects, onEdit, onClose, onToggle, onDelete }) {
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--bg-elevated)', padding: '0.75rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
               {task.description}
             </p>
+          </div>
+        )}
+
+        {/* Feedback */}
+        {task.feedback && (
+          <div style={{ marginBottom: '1.25rem', padding: '0.75rem', background: 'var(--bg-elevated)', borderRadius: 'var(--r-md)', borderLeft: '3px solid var(--accent)' }}>
+            <p className="label" style={{ marginBottom: '0.3rem' }}>Retroalimentación</p>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{task.feedback}</p>
           </div>
         )}
 
@@ -278,8 +344,7 @@ export function Tasks() {
         const [t, s] = await Promise.all([api.getTasks(), api.getSubjects()])
         setTasks(t.map(normalize)); setSubjects(s)
       } catch {
-        setTasks(localGet('tasks', defaultTasks()).map(normalize))
-        setSubjects(localGet('subjects', defaultSubjects))
+        setTasks([]); setSubjects([])
       }
     }
     load()
@@ -290,7 +355,7 @@ export function Tasks() {
     if (selected) setSelected(prev => tasks.find(t => t.id === prev.id) || null)
   }, [tasks])
 
-  const persist = updated => { setTasks(updated); localSet('tasks', updated) }
+  const persist = updated => setTasks(updated)
 
   const handleSave = async task => {
     try {
@@ -345,10 +410,10 @@ export function Tasks() {
       {/* Page header */}
       <div className="appear" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h1 className="page-title">Tareas</h1>
-          <p className="page-sub">{pending.length} pendiente{pending.length !== 1 ? 's' : ''} · {done.length} completada{done.length !== 1 ? 's' : ''}</p>
+          <h1 className="page-title">Actividades</h1>
+          <p className="page-sub">{pending.length} pendiente{pending.length !== 1 ? 's' : ''} · {done.length} completa{done.length !== 1 ? 's' : ''}da{done.length !== 1 ? 's' : ''}</p>
         </div>
-        <Btn icon={Plus} onClick={() => { setDrawer('new'); setSelected(null) }}>Nueva tarea</Btn>
+        <Btn icon={Plus} onClick={() => { setDrawer('new'); setSelected(null) }}>Nueva actividad</Btn>
       </div>
 
       {/* Stats */}
@@ -410,20 +475,23 @@ export function Tasks() {
         {/* Task table */}
         <div style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
           {filtered.length === 0 ? (
-            <EmptyState icon={AlignJustify} title="Sin tareas"
-              description={search ? 'No hay coincidencias para tu búsqueda.' : 'Crea tu primera tarea para comenzar.'}
-              action={!search && <Btn icon={Plus} onClick={() => setDrawer('new')} size="sm">Crear tarea</Btn>} />
+            <EmptyState icon={AlignJustify} title="Sin actividades"
+              description={search ? 'No hay coincidencias para tu búsqueda.' : 'Crea tu primera actividad para comenzar.'}
+              action={!search && <Btn icon={Plus} onClick={() => setDrawer('new')} size="sm">Crear actividad</Btn>} />
           ) : (
             <table className="data-table" style={{ minWidth: '560px' }}>
               <thead>
                 <tr>
                   <th style={{ width: '36px' }} />
-                  <th>Tarea</th>
-                  <th style={{ width: '120px' }}>Materia</th>
-                  <th style={{ width: '90px' }}>Prioridad</th>
-                  <th style={{ width: '110px' }}>Fecha límite</th>
-                  <th style={{ width: '70px' }}>Tiempo</th>
-                  <th style={{ width: '72px' }} />
+                  <th>Actividad</th>
+                  <th style={{ width: '100px' }}>Materia</th>
+                  <th style={{ width: '60px' }}>Tipo</th>
+                  <th style={{ width: '72px' }}>Prioridad</th>
+                  <th style={{ width: '80px' }}>Dificultad</th>
+                  <th style={{ width: '100px' }}>Fecha</th>
+                  <th style={{ width: '60px' }}>Tpo.</th>
+                  <th style={{ width: '60px' }}>Nota</th>
+                  <th style={{ width: '68px' }} />
                 </tr>
               </thead>
               <tbody>
@@ -449,10 +517,9 @@ export function Tasks() {
                         </div>
                       </td>
 
-                      {/* Title + type */}
+                      {/* Title */}
                       <td>
-                        <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', textDecoration: task.completed ? 'line-through' : 'none', textDecorationColor: 'var(--text-muted)', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '260px' }}>{task.title}</p>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{TYPE_LABELS[task.type] || task.type}</p>
+                        <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', textDecoration: task.completed ? 'line-through' : 'none', textDecorationColor: 'var(--text-muted)', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{task.title}</p>
                       </td>
 
                       {/* Subject */}
@@ -460,29 +527,48 @@ export function Tasks() {
                         {sub ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                             <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: sub.color, flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>{sub.code}</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{sub.name}</span>
                           </div>
-                        ) : <span style={{ color: 'var(--text-subtle)', fontSize: '0.78rem' }}>—</span>}
+                        ) : <span style={{ color: 'var(--text-subtle)', fontSize: '0.72rem' }}>—</span>}
+                      </td>
+
+                      {/* Type */}
+                      <td>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{TYPE_LABELS[task.type] || task.type}</span>
                       </td>
 
                       {/* Priority */}
                       <td>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: pr.color }}>{pr.label}</span>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: pr.color }}>{pr.label}</span>
+                      </td>
+
+                      {/* Difficulty */}
+                      <td>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 500, color: (DIFFICULTY_CFG[task.difficulty] || DIFFICULTY_CFG.medium).color }}>{(DIFFICULTY_CFG[task.difficulty] || DIFFICULTY_CFG.medium).label}</span>
                       </td>
 
                       {/* Due date */}
                       <td>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: dm.color }}>{dm.label}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: dm.color }}>{dm.label}</span>
                       </td>
 
                       {/* Hours */}
                       <td>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{task.estimatedHours}h</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{task.estimatedHours}h</span>
+                      </td>
+
+                      {/* Score */}
+                      <td>
+                        {task.score != null ? (
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: task.score >= (task.maxScore || 5) * 0.6 ? 'var(--success)' : 'var(--danger)' }}>{task.score}/{task.maxScore}</span>
+                        ) : task.weight > 0 ? (
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)' }}>—</span>
+                        ) : null}
                       </td>
 
                       {/* Actions */}
                       <td onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', paddingRight: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end', paddingRight: '0.25rem' }}>
                           <IconBtn icon={Edit2} variant="ghost" title="Editar" onClick={() => openEdit(task)} />
                           <IconBtn icon={Trash2} variant="danger" title="Eliminar" onClick={() => remove(task.id)} />
                         </div>

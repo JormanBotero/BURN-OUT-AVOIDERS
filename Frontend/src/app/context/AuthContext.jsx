@@ -45,6 +45,14 @@ export function AuthProvider({ children }) {
     return user
   }, [])
 
+  // Inicia sesión con Google
+  const loginGoogle = useCallback(async (credencial) => {
+    const { token, user } = await api.googleAuth(credencial)
+    localStorage.setItem(CLAVE_TOKEN, token)
+    setUsuario(user)
+    return user
+  }, [])
+
   // Actualiza los datos del perfil en el estado local
   const actualizarUsuario = useCallback((datosNuevos) => {
     setUsuario(prev => ({ ...prev, ...datosNuevos }))
@@ -56,14 +64,28 @@ export function AuthProvider({ children }) {
     setUsuario(null)
   }, [])
 
+  // Enviar código de verificación
+  const enviarCodigo = useCallback(async () => {
+    await api.sendCode()
+  }, [])
+
+  // Verificar código
+  const verificarCodigo = useCallback(async (code) => {
+    await api.verifyCode(code)
+    setUsuario(prev => ({ ...prev, emailVerified: true }))
+  }, [])
+
   return (
     <ContextoAuth.Provider value={{
       user: usuario,
       loading: cargando,
       login,
+      loginWithGoogle: loginGoogle,
       register: registro,
       updateUser: actualizarUsuario,
       logout: cerrarSesion,
+      sendVerificationCode: enviarCodigo,
+      verifyEmail: verificarCodigo,
     }}>
       {children}
     </ContextoAuth.Provider>
