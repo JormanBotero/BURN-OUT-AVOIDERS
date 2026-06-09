@@ -1,0 +1,57 @@
+name: CI/CD — StudyMind
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  lint-and-test:
+    name: Lint + Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: studymind_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: Backend/pnpm-lock.yaml
+
+      - name: Install Backend deps
+        working-directory: ./Backend
+        run: pnpm install
+
+      - name: Run Backend tests
+        working-directory: ./Backend
+        run: pnpm test
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/studymind_test
+          JWT_SECRET: test-secret-ci
+          JWT_EXPIRES_IN: 1h
+          SMTP_HOST: ''
+          FRONTEND_URL: http://localhost:5173
