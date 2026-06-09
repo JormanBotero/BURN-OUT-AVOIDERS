@@ -25,8 +25,27 @@ const SIDEBAR_W = 220
 export function Layout() {
   const loc = useLocation()
   const { isDark, toggleTheme } = useTheme()
-  const { user, logout } = useAuth()
+  const { user, logout, sendVerificationCode, verifyEmail } = useAuth()
   const [showSettings, setShowSettings] = useState(false)
+  const [showVerify, setShowVerify] = useState(false)
+  const [code, setCode] = useState('')
+  const [verifyMsg, setVerifyMsg] = useState('')
+  const [verifyLoading, setVerifyLoading] = useState(false)
+
+  const handleSendCode = async () => {
+    setVerifyLoading(true); setVerifyMsg('')
+    try { await sendVerificationCode(); setVerifyMsg('Código enviado a ' + user.email) }
+    catch (e) { setVerifyMsg(e.message) }
+    setVerifyLoading(false)
+  }
+
+  const handleVerifyCode = async () => {
+    if (code.length < 6) return
+    setVerifyLoading(true); setVerifyMsg('')
+    try { await verifyEmail(code); setShowVerify(false) }
+    catch (e) { setVerifyMsg(e.message) }
+    setVerifyLoading(false)
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex' }}>
@@ -298,10 +317,43 @@ export function Layout() {
           <div style={{
             padding: '0.5rem 1.5rem', background: 'var(--warning-soft, #fef3c7)',
             borderBottom: '1px solid var(--border)', fontSize: '0.78rem',
-            color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem',
+            color: 'var(--text-secondary)',
           }}>
-            <Mail size={14} />
-            <span>Verifica tu correo para acceder a todas las funciones — <Link to="/register" style={{ color:'var(--accent)', fontWeight:600 }}>Verificar ahora</Link></span>
+            {!showVerify ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+                <span><Mail size={14} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />Verifica tu correo para desbloquear todas las funciones</span>
+                <button onClick={() => { setShowVerify(true); handleSendCode() }}
+                  style={{ background:'var(--accent)', color:'white', border:'none', borderRadius:'var(--r-sm)', padding:'0.3rem 0.75rem', fontSize:'0.78rem', fontWeight:600, cursor:'pointer' }}>
+                  Verificar ahora
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  type="text" maxLength={6} inputMode="numeric" placeholder="000000"
+                  value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  style={{
+                    width:'90px', textAlign:'center', fontSize:'1rem', letterSpacing:'4px',
+                    fontFamily:'monospace', fontWeight:700, padding:'0.3rem', borderRadius:'var(--r-sm)',
+                    border:'1px solid var(--border)', background:'var(--bg-base)', color:'var(--text-primary)', outline:'none',
+                  }}
+                />
+                <button onClick={handleVerifyCode} disabled={code.length < 6 || verifyLoading}
+                  style={{
+                    background: code.length < 6 ? 'var(--bg-elevated)' : 'var(--accent)',
+                    color: code.length < 6 ? 'var(--text-muted)' : 'white', border:'none',
+                    borderRadius:'var(--r-sm)', padding:'0.3rem 0.75rem', fontSize:'0.78rem',
+                    fontWeight:600, cursor:'pointer',
+                  }}>
+                  {verifyLoading ? '...' : 'Verificar'}
+                </button>
+                <button onClick={handleSendCode} disabled={verifyLoading}
+                  style={{ background:'none', border:'none', color:'var(--accent)', fontWeight:600, cursor:'pointer', fontSize:'0.78rem', textDecoration:'underline' }}>
+                  Reenviar
+                </button>
+                {verifyMsg && <span style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{verifyMsg}</span>}
+              </div>
+            )}
           </div>
         )}
         <main style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
