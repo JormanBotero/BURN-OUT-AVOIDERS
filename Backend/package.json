@@ -6,7 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,5 +19,8 @@
     "nodemailer": "^8.0.10",
     "pg": "^8.11.3",
     "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.8"
   }
 }
