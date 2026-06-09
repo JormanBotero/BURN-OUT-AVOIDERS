@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router'
 import {
   LayoutDashboard, BookOpen, CheckSquare, Calendar,
-  BarChart3, GraduationCap, Moon, Sun, LogOut, ChevronRight, Sparkles, Smile, Settings
+  BarChart3, GraduationCap, Moon, Sun, LogOut, ChevronRight, Sparkles, Smile, Settings, Mail
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Avatar } from './ui.jsx'
-import { VerifyEmailModal } from './VerifyEmailModal.jsx'
+
 import { SettingsModal } from './SettingsModal.jsx'
 
 const NAV = [
@@ -294,11 +294,20 @@ export function Layout() {
             <Avatar src={user?.avatar} initials={user?.initials} size={26} radius={8} />
           </Link>
         </header>
+        {user && !user.emailVerified && (
+          <div style={{
+            padding: '0.5rem 1.5rem', background: 'var(--warning-soft, #fef3c7)',
+            borderBottom: '1px solid var(--border)', fontSize: '0.78rem',
+            color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem',
+          }}>
+            <Mail size={14} />
+            <span>Verifica tu correo para acceder a todas las funciones — <Link to="/register" style={{ color:'var(--accent)', fontWeight:600 }}>Verificar ahora</Link></span>
+          </div>
+        )}
         <main style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
           <div className="page-enter"><Outlet /></div>
         </main>
       </div>
-      <VerifyEmailModal />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   )
