@@ -1,4 +1,4 @@
-name: CI/CD — StudyMind
+name: CI — StudyMind Tests
 
 on:
   push:
@@ -10,24 +10,9 @@ env:
   NODE_VERSION: '22'
 
 jobs:
-  lint-and-test:
-    name: Lint + Test
+  test:
+    name: Tests
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: studymind_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - uses: actions/checkout@v4
@@ -49,9 +34,3 @@ jobs:
       - name: Run Backend tests
         working-directory: ./Backend
         run: pnpm test
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/studymind_test
-          JWT_SECRET: test-secret-ci
-          JWT_EXPIRES_IN: 1h
-          SMTP_HOST: ''
-          FRONTEND_URL: http://localhost:5173
