@@ -100,7 +100,7 @@ export function Schedule() {
                             background: cls.mat.color, borderRadius: '7px', padding: '4px 7px',
                             overflow: 'hidden', cursor: 'default', zIndex: 2,
                           }}>
-                            <p style={{ fontSize: '0.63rem', fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{cls.mat.code}</p>
+                            <p style={{ fontSize: '0.63rem', fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{cls.mat.name}</p>
                             <p style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.85)' }}>{cls.startTime}–{cls.endTime}</p>
                           </div>
                         )
