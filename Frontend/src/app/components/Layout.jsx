@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router'
 import {
   LayoutDashboard, BookOpen, CheckSquare, Calendar,
-  BarChart3, GraduationCap, Moon, Sun, LogOut, ChevronRight, Sparkles, Smile, Settings, Mail
+  BarChart3, GraduationCap, Moon, Sun, LogOut, ChevronRight, Sparkles, Smile, Settings
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Avatar } from './ui.jsx'
 
 import { SettingsModal } from './SettingsModal.jsx'
+import { VerifyEmailModal } from './VerifyEmailModal.jsx'
 
 const NAV = [
   { path: '/app',           label: 'Dashboard', icon: LayoutDashboard, color: '#7265f8' },
@@ -25,27 +26,9 @@ const SIDEBAR_W = 220
 export function Layout() {
   const loc = useLocation()
   const { isDark, toggleTheme } = useTheme()
-  const { user, logout, sendVerificationCode, verifyEmail } = useAuth()
+  const { user, logout } = useAuth()
   const [showSettings, setShowSettings] = useState(false)
   const [showVerify, setShowVerify] = useState(false)
-  const [code, setCode] = useState('')
-  const [verifyMsg, setVerifyMsg] = useState('')
-  const [verifyLoading, setVerifyLoading] = useState(false)
-
-  const handleSendCode = async () => {
-    setVerifyLoading(true); setVerifyMsg('')
-    try { await sendVerificationCode(); setVerifyMsg('Código enviado a ' + user.email) }
-    catch (e) { setVerifyMsg(e.message) }
-    setVerifyLoading(false)
-  }
-
-  const handleVerifyCode = async () => {
-    if (code.length < 6) return
-    setVerifyLoading(true); setVerifyMsg('')
-    try { await verifyEmail(code); setShowVerify(false) }
-    catch (e) { setVerifyMsg(e.message) }
-    setVerifyLoading(false)
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex' }}>
@@ -303,64 +286,40 @@ export function Layout() {
           zIndex: 30, flexShrink: 0,
         }}>
           <PaginaBreadcrumb pathname={loc.pathname} />
-          <Link to="/app/profile" style={{
-            textDecoration: 'none', display: 'flex',
-            alignItems: 'center', gap: '0.5rem',
-          }}>
-            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              {user?.name}
-            </span>
-            <Avatar src={user?.avatar} initials={user?.initials} size={26} radius={8} />
-          </Link>
-        </header>
-        {user && !user.emailVerified && (
-          <div style={{
-            padding: '0.5rem 1.5rem', background: 'var(--warning-soft, #fef3c7)',
-            borderBottom: '1px solid var(--border)', fontSize: '0.78rem',
-            color: 'var(--text-secondary)',
-          }}>
-            {!showVerify ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
-                <span><Mail size={14} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />Verifica tu correo para desbloquear todas las funciones</span>
-                <button onClick={() => { setShowVerify(true); handleSendCode() }}
-                  style={{ background:'var(--accent)', color:'white', border:'none', borderRadius:'var(--r-sm)', padding:'0.3rem 0.75rem', fontSize:'0.78rem', fontWeight:600, cursor:'pointer' }}>
-                  Verificar ahora
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <input
-                  type="text" maxLength={6} inputMode="numeric" placeholder="000000"
-                  value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  style={{
-                    width:'90px', textAlign:'center', fontSize:'1rem', letterSpacing:'4px',
-                    fontFamily:'monospace', fontWeight:700, padding:'0.3rem', borderRadius:'var(--r-sm)',
-                    border:'1px solid var(--border)', background:'var(--bg-base)', color:'var(--text-primary)', outline:'none',
-                  }}
-                />
-                <button onClick={handleVerifyCode} disabled={code.length < 6 || verifyLoading}
-                  style={{
-                    background: code.length < 6 ? 'var(--bg-elevated)' : 'var(--accent)',
-                    color: code.length < 6 ? 'var(--text-muted)' : 'white', border:'none',
-                    borderRadius:'var(--r-sm)', padding:'0.3rem 0.75rem', fontSize:'0.78rem',
-                    fontWeight:600, cursor:'pointer',
-                  }}>
-                  {verifyLoading ? '...' : 'Verificar'}
-                </button>
-                <button onClick={handleSendCode} disabled={verifyLoading}
-                  style={{ background:'none', border:'none', color:'var(--accent)', fontWeight:600, cursor:'pointer', fontSize:'0.78rem', textDecoration:'underline' }}>
-                  Reenviar
-                </button>
-                {verifyMsg && <span style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{verifyMsg}</span>}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {user && !user.emailVerified && (
+              <button onClick={() => setShowVerify(true)} title="Verificar correo"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 500,
+                  padding: '0.25rem 0.5rem', borderRadius: '20px',
+                  border: '1px solid var(--border)', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                Sin verificar
+              </button>
             )}
+            <Link to="/app/profile" style={{
+              textDecoration: 'none', display: 'flex',
+              alignItems: 'center', gap: '0.5rem',
+            }}>
+              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                {user?.name}
+              </span>
+              <Avatar src={user?.avatar} initials={user?.initials} size={26} radius={8} />
+            </Link>
           </div>
-        )}
+        </header>
         <main style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
           <div className="page-enter"><Outlet /></div>
         </main>
       </div>
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      <VerifyEmailModal open={showVerify} onClose={() => setShowVerify(false)} />
     </div>
   )
 }
