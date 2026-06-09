@@ -44,7 +44,7 @@ jobs:
 
       - name: Install Backend deps
         working-directory: ./Backend
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run Backend tests
         working-directory: ./Backend
