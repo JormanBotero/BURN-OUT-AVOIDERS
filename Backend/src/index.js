@@ -26,12 +26,12 @@ import { authenticateToken } from './middleware/auth.js'
 const app = express()
 const PUERTO = process.env.PORT
 
-// Permitir peticiones del frontend (configurable por variable de entorno)
+// Permitir peticiones del frontend (varias URLs separadas por coma)
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  ...(process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean),
   'http://localhost:5173',
   'http://localhost:4173',
-].filter(Boolean)
+]
 
 app.use(cors({
   origin: (origin, callback) => {

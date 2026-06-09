@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer'
+import { setDefaultResultOrder } from 'net'
+setDefaultResultOrder('ipv4first')
 
 let transporter = null
 
